@@ -21,10 +21,11 @@ def simple_tcp_client():
         sock.send(DATA.encode())
 
         # Return data from the server and shut down
-        received = str(sock.recv(1024), "utf-8")
+        rec = sock.recv(1024)
+        #received = str(sock.recv(1024), "utf-8")
 
     print("\n\nSent from client:  {}".format(DATA))
-    print("Received from server:  {}".format(received))
+    print("Received from server:  {}".format(str(rec, "utf-8") ))
 
 
 if __name__ == '__main__':

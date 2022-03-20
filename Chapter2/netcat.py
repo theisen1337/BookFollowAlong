@@ -7,19 +7,48 @@
 """
 import argparse
 import socket
+import socketserver
+import sys
+
+
+
+class MyBigFatTCPHandler(socketserver.BaseRequestHandler):
+    """
+    The request handler class for our server.
+
+    It is instantiated once per connection to the server, and must
+    override the handle() method to implement communication to the
+    client.
+    """
+
+    def handle(self):
+        # self.request is the TCP socket connected to the client
+        # Note this will only accept the first 1024 bytes of the data.
+        self.data = self.request.recv(1024).strip()
+
+        # Write out data to Server Console.
+        print("{} wrote:".format(self.client_address[0]))
+        # Write out byte string
+        print(self.data)
+        # Write out normal string
+        print(str(self.data, 'utf-8'))
+
+        # Just send back the same data, but upper-cased
+        self.request.sendall(self.data.upper())
+
 
 class NetCat():
 
     def __init__(self):
         args = self._usage()
 
-        listen = args.listen
-        command = args.command
-        upload = False
-        execute = args.execute
-        target = args.target
-        upload_destination = args.upload
-        port = args.port
+        self.listen = args.listen
+        self.command = args.command
+        self.upload = False
+        self.execute = args.execute
+        self.target = args.target
+        self.upload_destination = args.upload
+        self.port = args.port
         print("")
 
 
@@ -81,6 +110,15 @@ class NetCat():
 
         return parser.parse_args()
 
+
+    def _read_input_and_send(self):
+        # Read in data, and Send it to target
+        while True:
+            read = input()
+            read = str(read)
+            if len(read) > 0:
+                self.client_sender(read)
+
     def client_sender(self, send_string: str):
 
         assert self.target is not None
@@ -94,19 +132,36 @@ class NetCat():
             sock.send(send_string.encode())
 
             # Return data from the server and shut down
-            received = str(sock.recv(1024), "utf-8")
+            recv = sock.recv(1024)
+            response = str(recv, "utf-8")
+            while sys.getsizeof(recv) > 1024:
+                recv = sock.recv(1024)
+                response += str(recv, "utf-8")
+
+            print(response)
+
+    def server_loop(self):
+
+        # If no target is defined, we listen on all interfaces
+        if self.target is None:
+            self.target = "0.0.0.0"
+
+        # Create the server, binding to localhost on port 9999
+        with socketserver.TCPServer((self.target, self.port), MyBigFatTCPHandler) as server:
+            # Activate the server; this will keep running until you
+            # interrupt the program with Ctrl-C
+            server.serve_forever()
+
+
 
     def start(self):
 
         if self.listen == True:
             # Server Loop
-            pass
+            self.server_loop()
+
         elif self.listen == False and self.target is not None and self.port is not None:
-            # Read in data, and Send it to target
-            read = input()
-            read = str(read)
-            if len(read) > 0:
-                self.client_sender(read)
+            self._read_input_and_send()
 
 
 if __name__ == "__main__":
